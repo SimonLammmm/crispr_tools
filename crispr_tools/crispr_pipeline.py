@@ -487,16 +487,24 @@ def call_chronos_batch(sample_reps:Dict[str, list],
             chronos.nan_outgrowths(this_readcounts, this_sequencemap, guidemap)
             # do chronos
             try: 
+                # try with negative control sgrnas
                 model = chronos.Chronos(
                     readcounts = {"default": this_readcounts},
                     sequence_map = {"default": this_sequencemap},
                     guide_gene_map = {"default": guidemap},
                     negative_control_sgrnas = {"default": negctrls},
                     initial_screen_delay = this_initial_screen_delay)
-            except Exception as exc:
-                pipeLOG.info(exc)
-                pipeLOG.info("Couldn't do it: " + str(k) + ". Not running Chronos.")
-                continue 
+            except Exception:
+                try:
+                    # try without negative control sgrnas
+                    model = chronos.Chronos(
+                        readcounts = {"default": this_readcounts},
+                        sequence_map = {"default": this_sequencemap},
+                        guide_gene_map = {"default": guidemap})
+                except Exception as exc:
+                    pipeLOG.info(exc)
+                    pipeLOG.info("Couldn't do it: " + str(k) + ". Not running Chronos.")
+                    continue 
             model.train()
             # save output
             os.makedirs(this_prefix, exist_ok = True)
