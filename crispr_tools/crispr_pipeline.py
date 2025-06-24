@@ -934,7 +934,7 @@ def run_analyses(output_dir, file_prefix,
 
         # tabulate the analyses
         for analysis_method, results_prefix, table_file_prefix in list(ran_analyses):
-            tab = analysis_tabulate[analysis_method](results_prefix, cell_line_hash, compjoiner)
+            tab = analysis_tabulate[analysis_method](results_prefix, cell_line_hash, ctrl_map, compjoiner)
             tabfn = str(os.path.join(output_dir, 'tables', f'{table_file_prefix}.{analysis_method}_table.csv'))
             pipeLOG.info(f'writing table: {tabfn}')
             if not dry_run:

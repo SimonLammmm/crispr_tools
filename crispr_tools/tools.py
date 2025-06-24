@@ -262,7 +262,7 @@ def iter_files_by_prefix(prefix:Union[str, Path], req_suffix=None, allow_gz=True
         ):
             yield fn
 
-def tabulate_mageck(prefix, cell_line_hash, compjoiner=ARROW) -> dict[str, pd.DataFrame]:
+def tabulate_mageck(prefix, cell_line_hash, ctrl_map, compjoiner=ARROW) -> dict[str, pd.DataFrame]:
     """One DF per comparison.
 
     Args:
@@ -313,7 +313,7 @@ def tabulate_mageck(prefix, cell_line_hash, compjoiner=ARROW) -> dict[str, pd.Da
 
     return table
 
-def tabulate_drugz(prefix, cell_line_hash, compjoiner=ARROW) -> dict[str, pd.DataFrame]:
+def tabulate_drugz(prefix, cell_line_hash, ctrl_map, compjoiner=ARROW) -> dict[str, pd.DataFrame]:
     """One DF per comparison.
 
     Args:
@@ -379,12 +379,11 @@ def read_chronos(filename):
     # return
     return pd.DataFrame(data).set_axis(dim_0, axis = 0).set_axis(dim_1, axis = 1)
 
-def tabulate_chronos(prefix, cell_line_hash, compjoiner=ARROW) -> dict[str, pd.DataFrame]:
+def tabulate_chronos(prefix, cell_line_hash, ctrl_map, compjoiner=ARROW) -> dict[str, pd.DataFrame]:
     # Get the parent directory containing individual Chronos analyses
     stem = re.sub(r"^(.+/)(.+)?$", r"\1", prefix)
     # Get the descriptor for each pDNA
     root = re.sub(r"^(.+/)(.+)?$", r"\2", prefix) + "\."
-    # Go through the files
     prefix2 = Path(prefix)
     # Create a mapping of hashes back to samples
     cell_line_hash_table = pd.DataFrame.from_dict(cell_line_hash, orient = "index").unstack().reset_index().drop("level_0", axis = 1).rename(columns = {"level_1": "sample", 0: "index"})
@@ -392,19 +391,26 @@ def tabulate_chronos(prefix, cell_line_hash, compjoiner=ARROW) -> dict[str, pd.D
     cell_line_hash_table = cell_line_hash_table[[i is not None for i in cell_line_hash_table['index']]]
     cell_line_hash_table['index'] = cell_line_hash_table['index'].astype(str)
     tables = {}
+    # Go through the files
     for fn in iter_files_by_prefix(prefix2):
         if fn == ".DS_Store":
             continue
+        # Get the differential level
         fn2 = re.sub(root + r"(.+)", r"\1", fn)
+        # Read h5 and obtain scores
         tab = read_chronos(filename = stem + fn + "/gene_effect.hdf5")
         tab = tab.reset_index()
         tab['index'] = tab['index'].astype(str)
+        # Get differential level from the hash
         tab = tab.merge(cell_line_hash_table, how = "left")
         tab = tab.drop('index', axis=1)
+        # Accept only differential levels that were actually used in the analysis
+        tab = tab[tab['sample'].isin(ctrl_map[fn2])]
         tab = tab.set_index('sample')
         tab = tab.set_axis([fn2 + compjoiner + str(c) for c in list(tab.index)])
         tab = tab.transpose()
         tab.index.name = 'gene'
+        # Populate single wide table
         tables[fn2] = tab
     # Return without creating a table if there weren't any results
     if len(tables) == 0:
@@ -413,6 +419,7 @@ def tabulate_chronos(prefix, cell_line_hash, compjoiner=ARROW) -> dict[str, pd.D
         [sorted([x for xs in [list(tables[t].keys()) for t in tables.keys()] for x in xs]), ["chronos_score"]],
         1
     )    
+    # Populate double-headed wide table
     table = pd.DataFrame(index=tab.index, columns=tbcolumns)
     for exp in tables.keys():
         for col in tables[exp].keys():
