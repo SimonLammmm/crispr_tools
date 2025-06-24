@@ -901,7 +901,7 @@ def run_analyses(output_dir, file_prefix,
         except KeyError:
             curr_kwargs = default_method_kwargs
 
-        pseudocount = analysis_dict.get('pseudo_count', 1)
+        pseudocount = analysis_dict.get('pseudocount', 1)
 
         # go through the selected groups for this analysis and run the thing
         for grp in groups:
