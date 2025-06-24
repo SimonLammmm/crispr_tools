@@ -410,7 +410,6 @@ def call_chronos_batch(sample_reps:Dict[str, list],
                        pseudocount=1,
                        overwrite=False):
     
-    import chronos
     import math
     # read in counts
     counts = pd.read_csv(counts_file, sep = "\t")    
@@ -472,6 +471,7 @@ def call_chronos_batch(sample_reps:Dict[str, list],
         # proceed if it is a fromstart contrast and we haven't run it before
         this_prefix = prefix + "." + k
         if overwrite or not file_exists_or_zero(maybe_its_gz(this_prefix + "/gene_effect.hdf5")):
+            import chronos
             # initial screen delay is the earliest timepoint
             this_initial_screen_delay = min(this_timepoints)
             # remove cell lines with no replicates after the pDNA sample
