@@ -448,8 +448,8 @@ def call_chronos_batch(sample_reps:Dict[str, list],
     ha = pd.DataFrame(pd.DataFrame.from_dict(cell_line_hash, orient = "index").unstack()).reset_index().drop("level_0", axis = 1).rename(columns = {"level_1": "sample", 0: "cell_line_name"})
     ha = ha.loc[[h is not None for h in ha['cell_line_name']]]
     ha['cell_line_name'] = ha['cell_line_name'].astype(str)
-    sequencemap = sa.merge(da, on = "sample", how = "left").drop_duplicates()
-    sequencemap = sequencemap.merge(ha, on = "sample", how = "left").drop_duplicates()
+    sequencemap = sa.merge(da, on = "sample", how = "left").drop_duplicates(subset=["sample"])
+    sequencemap = sequencemap.merge(ha, on = "sample", how = "left").drop_duplicates(subset=["sample"])
     sequencemap["pDNA_batch"] = 0
     
     # loop through each fromstart contrast
