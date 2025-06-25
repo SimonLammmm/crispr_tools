@@ -448,8 +448,8 @@ def call_chronos_batch(sample_reps:Dict[str, list],
     ha = pd.DataFrame(pd.DataFrame.from_dict(cell_line_hash, orient = "index").unstack()).reset_index().drop("level_0", axis = 1).rename(columns = {"level_1": "sample", 0: "cell_line_name"})
     ha = ha.loc[[h is not None for h in ha['cell_line_name']]]
     ha['cell_line_name'] = ha['cell_line_name'].astype(str)
-    sequencemap = sa.merge(da, on = "sample", how = "left").drop_duplicates(subset=["sample"]).drop_duplicates(subset=["sequence_ID"])
-    sequencemap = sequencemap.merge(ha, on = "sample", how = "left").drop_duplicates(subset=["sample"]).drop_duplicates(subset=["sequence_ID"])
+    sequencemap = sa.merge(da, on = "sample", how = "left").drop_duplicates(subset=["sample"])
+    sequencemap = sequencemap.merge(ha, on = "sample", how = "left").drop_duplicates(subset=["sample"])
     sequencemap["pDNA_batch"] = 0
     
     # loop through each fromstart contrast
@@ -458,6 +458,7 @@ def call_chronos_batch(sample_reps:Dict[str, list],
         # get the current sequencemap for this contrast
         this_sequencemap = sequencemap[sequencemap['sample'].isin(v)]
         this_sequencemap.loc[this_sequencemap['sample'] == k, 'cell_line_name'] = "pDNA"
+        this_sequencemap = this_sequencemap.drop_duplicates(subset=["sequence_ID"])
         # stop if this is not a fromstart contrast
         this_timepoints = set(this_sequencemap['days'])
         if len(this_timepoints) == 1:
