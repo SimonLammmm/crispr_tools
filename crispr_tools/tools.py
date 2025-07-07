@@ -405,7 +405,7 @@ def tabulate_chronos(prefix, cell_line_hash, ctrl_map, compjoiner=ARROW) -> dict
         tab = tab.merge(cell_line_hash_table, how = "left")
         tab = tab.drop('index', axis=1)
         # Accept only differential levels that were actually used in the analysis
-        tab = tab[tab['sample'].isin(ctrl_map[fn2])]
+        #tab = tab[tab['sample'].isin(ctrl_map[fn2])]
         tab = tab.set_index('sample')
         tab = tab.set_axis([fn2 + compjoiner + str(c) for c in list(tab.index)])
         tab = tab.transpose()

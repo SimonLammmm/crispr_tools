@@ -189,7 +189,7 @@ class AnalysisWorkbook:
         }
             # Produce a hash (not actually a hash) of the treatment, dose, clone, cell line, and knockout.
             # This is used by chronos to identify which replicates are the same samples but different timepoints
-        repdeets['hash'] = repdeets['Treatment'].astype(str) + repdeets['Dose'].astype(str) + repdeets['Clone'].astype(str) + repdeets['Cell line'].astype(str) + repdeets['KO'].astype(str)
+        repdeets['hash'] = repdeets['Trajectory'].astype(str)
         experiment_dictionary['cell_line_hash'] = {
             k: list(v.values) for k, v in repdeets.set_index('hash').groupby('Sample').groups.items()
         }
