@@ -139,6 +139,8 @@ def count_reads_from_file(fn, slicer=(None, None), s_len=None, s_offset=0, file_
         #     raise RuntimeError('Unknown file format for '+fn, 'Please specify in args.')
 
     reader = {'q':read_fastq(f), 'a':read_fasta(f)}[file_format]
+    
+    LOG.info(f"{fn} slice: {slicer}")
 
     # parse out the sequences from the FastQ
     for s in reader:
@@ -202,7 +204,7 @@ def file_exists_or_zero(fn):
         return False
 
 
-def count_batch(fn_or_dir, slicer, fn_prefix='', seq_len=None, seq_offset=0, fn_suffix='.rawcount',
+def count_batch(fn_or_dir, slicer, guide_lengths, fn_prefix='', seq_len=None, seq_offset=0, fn_suffix='.rawcount',
                 fn_split='_R1_', merge_samples=False, just_go=False, quiet=False,
                 file_type = 'infer', no_log_file=True, debug=False):
     """Write a table giving the frequency of all unique sequences from a fastq
@@ -344,7 +346,11 @@ def count_batch(fn_or_dir, slicer, fn_prefix='', seq_len=None, seq_offset=0, fn_
             if not file_exists_or_zero(outfn):
                 cnt = Counter()
                 for fn in fn_or_dir:
-                    cnt += count_reads_from_file(fn, slicer, seq_len, seq_offset)
+                    for window_length in range(guide_lengths[0], guide_lengths[1] + 1):
+                        for window_start in range(slicer[0], slicer[1] - window_length + 1):
+                            window_end = window_start + window_length
+                            window = [window_start, window_end]
+                            cnt += count_reads_from_file(fn, window, seq_len, seq_offset)
                 write_count(cnt, samp)
             else:
                 LOG.info('Output counts file already exists. Skipping: ' + outfn)
@@ -355,7 +361,13 @@ def count_batch(fn_or_dir, slicer, fn_prefix='', seq_len=None, seq_offset=0, fn_
             outfn = get_outfn(samp)
             out_files.append(outfn)
             if not file_exists_or_zero(outfn):
-                cnt = count_reads_from_file(fn, slicer, seq_len, seq_offset, file_type)
+                cnt = Counter()
+                for fn in fn_or_dir:
+                    for window_length in range(guide_lengths[0], guide_lengths[1] + 1):
+                        for window_start in range(slicer[0], slicer[1] - window_length + 1):
+                            window_end = window_start + window_length
+                            window = [window_start, window_end]
+                            cnt += count_reads_from_file(fn, window, seq_len, seq_offset)
                 out_files.append(
                     write_count(cnt, samp)
                 )
@@ -389,6 +401,12 @@ def get_count_table_from_file_list(file_list:List[Path], splitter='.raw',
     LOG.info(f'sample headers: {list(rawcnt.keys())}')
     return pd.DataFrame(rawcnt).fillna(0).astype(int)
 
+def get_guide_lengths(library, g):
+    this_library = pd.read_csv(library, sep = "\t")
+    guide_lengths = [len(x) for x in this_library[g]]
+    guide_length_max = max(guide_lengths)
+    guide_length_min = min(guide_lengths)
+    return [guide_length_min, guide_length_max]
 
 def map_allowing_mismatch(query_sequences:typing.Collection[str],
                           lib_sequences:typing.Collection[str],
@@ -570,24 +588,51 @@ if __name__ == '__main__':
                         help='Print/log additional debug messages.')
 
     clargs = parser.parse_args()
+    
+    # slices list of input files, or dir
+    slicer = [int(n) for n in clargs.slice.split(',')]
 
     if clargs.library:
+        # fail if library not found
         if not os.path.isfile(clargs.library):
             raise RuntimeError(f"Library file not found: {clargs.library}")
 
+        # warn if duplicated guide ids
         lib = pd.read_table(clargs.library, index_col=clargs.guidehdr, sep=None, engine="python")
         if lib.index.duplicated().any():
             print('WARNING: Duplicated guide names found in library, first one will be kept, all others discarded.')
-
+        
+        # warn if guides too short
+        min_accepted_guide_length = 16
+        guide_lengths = get_guide_lengths(clargs.library, clargs.seqhdr)
+        if guide_lengths[0] < min_accepted_guide_length:
+            print(f'WARNING: Library contains guides {guide_lengths[0]} nucleotides long. Won\'t count guides shorter than {min_accepted_guide_length} nucleotides.')
+            guide_lengths[0] = min_accepted_guide_length
+        
+        # warn if variable guide lengths in the library
+        if guide_lengths[0] != guide_lengths[1]:
+            print(f'WARNING: Variable guide lengths in library. Sliding windows of length {guide_lengths[0]} to {guide_lengths[1]} along the slice region.')
+        
+        # fail if slice shorter than max guide length
+        if guide_lengths[1] > slicer[1] - slicer[0]:
+            raise RuntimeError(f"Slice is {clargs.slice} with length {slicer[1] - slicer[0]} cannot be shorter than max guide length ({guide_lengths[1]}). Quitting.")
+        
+        # warn if mismatched guide length and slice
+        if guide_lengths[1] != slicer[1] - slicer[0]:
+            print(f'WARNING: Slice is {clargs.slice} with length {slicer[1] - slicer[0]} but max guide length is shorter than this ({guide_lengths[1]}). Sliding a window along the slice region.')
+        
+    else:
+        # fallback when library not supplied: assume guides are the same length as the slice
+        guide_lengths = [slicer[1] - slicer[0], slicer[1] - slicer[0]]
+        
     assert all([os.path.isfile(f) for f in clargs.files])
 
-    # slices list of input files, or dir
-    slicer = [int(n) for n in clargs.slice.split(',')]
     
     os.makedirs(os.path.dirname(clargs.prefix), exist_ok=True)
 
     written_fn = count_batch(fn_or_dir=clargs.files,
                              slicer=slicer,
+                             guide_lengths = guide_lengths,
                              fn_prefix=clargs.prefix,
                              fn_suffix=clargs.suffix,
                              fn_split=clargs.fn_split,
