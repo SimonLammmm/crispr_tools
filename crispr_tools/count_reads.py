@@ -611,15 +611,20 @@ if __name__ == '__main__':
         
         # warn if variable guide lengths in the library
         if guide_lengths[0] != guide_lengths[1]:
-            print(f'WARNING: Variable guide lengths in library. Sliding windows of length {guide_lengths[0]} to {guide_lengths[1]} along the slice region.')
+            print(f'WARNING: Variable guide lengths {guide_lengths[0]} - {guide_lengths[1]} in library. Sliding windows along the slice region.')
         
-        # fail if slice shorter than max guide length
+        # warn if slice shorter than max guide length
         if guide_lengths[1] > slicer[1] - slicer[0]:
-            raise RuntimeError(f"Slice is {clargs.slice} with length {slicer[1] - slicer[0]} cannot be shorter than max guide length ({guide_lengths[1]}). Quitting.")
+            print(f"WARNING: Slice {clargs.slice} with length {slicer[1] - slicer[0]} is shorter than max guide length ({guide_lengths[1]}). Guides longer than the slice length won't be counted.")
+            guide_lengths[1] = slicer[1] - slicer[0]
         
         # warn if mismatched guide length and slice
-        if guide_lengths[1] != slicer[1] - slicer[0]:
+        if guide_lengths[1] < slicer[1] - slicer[0]:
             print(f'WARNING: Slice is {clargs.slice} with length {slicer[1] - slicer[0]} but max guide length is shorter than this ({guide_lengths[1]}). Sliding a window along the slice region.')
+            
+        # fail if all guide lengths are longer than the slice
+        if guide_lengths[0] > slicer[1] - slicer[0]:
+            raise RuntimeError(f"Minimum guide length ({guide_lengths[0]} is longer than the slice {clargs.slice} length ({slicer[1] - slicer[0]}. No guides to align. Quitting.")
         
     else:
         # fallback when library not supplied: assume guides are the same length as the slice
