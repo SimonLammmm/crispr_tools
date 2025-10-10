@@ -362,12 +362,11 @@ def count_batch(fn_or_dir, slicer, guide_lengths, fn_prefix='', seq_len=None, se
             out_files.append(outfn)
             if not file_exists_or_zero(outfn):
                 cnt = Counter()
-                for fn in fn_or_dir:
-                    for window_length in range(guide_lengths[0], guide_lengths[1] + 1):
-                        for window_start in range(slicer[0], slicer[1] - window_length + 1):
-                            window_end = window_start + window_length
-                            window = [window_start, window_end]
-                            cnt += count_reads_from_file(fn, window, seq_len, seq_offset)
+                for window_length in range(guide_lengths[0], guide_lengths[1] + 1):
+                    for window_start in range(slicer[0], slicer[1] - window_length + 1):
+                        window_end = window_start + window_length
+                        window = [window_start, window_end]
+                        cnt += count_reads_from_file(fn, window, seq_len, seq_offset)
                 out_files.append(
                     write_count(cnt, samp)
                 )
